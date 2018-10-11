@@ -84,7 +84,7 @@ error.integrals <- function(theta, densities, wts) {
 #' The weight of evidence in nats for each observation.
 #'
 #' @examples
-#' data("cleveland") # load example dataset
+#' data(cleveland) # load example dataset
 #' W <- with(cleveland, weightsofevidence(posterior.p, prior.p))
 #'
 #' @export
@@ -113,7 +113,7 @@ weightsofevidence <- function(posterior.p, prior.p) {
 #' @param range.xseq Range of points where the curves should be sampled.
 #' @param x.stepsize Distance between each point.
 #' @param adjust.bw Bandwidth adjustment for the Gaussian kernel density
-#'        estimator. By default it's set to 1 (no adjustment), setting it to
+#'        estimator. By default it is set to 1 (no adjustment), setting it to
 #'        a value smaller/larger than 1 reduces/increases the smoothing of
 #'        the kernel. This argument is ignored if \code{in.spike} is not
 #'        \code{NULL}.
@@ -123,17 +123,21 @@ weightsofevidence <- function(posterior.p, prior.p) {
 #'        vector of the same length as \code{y}, with elements set to \code{TRUE}
 #'        if in the spike component, \code{FALSE} otherwise. Typically used
 #'        where high proportion of values of the predictor are zero.
+#' @param recalibrate If \code{TRUE} (the default) the weights of evidence are
+#'        calculated after the posterior probabilities have been recalibrated
+#'        against \code{y} using a logistic regression model.
+#' @param debug If \code{TRUE}, the size of the adjustment is reported.
 #'
 #' @return
 #' A densities object that contains the information necessary to compute
 #' summary measures and generate plots.
 #'
 #' @examples
-#' data("cleveland")
+#' data(cleveland)
 #' densities <- with(cleveland, Wdensities(y, posterior.p, prior.p))
 #'
 #' # Example which requires fitting a mixture distribution
-#' data("fitonly")
+#' data(fitonly)
 #' densities <- with(fitonly, Wdensities(y, posterior.p, prior.p,
 #'                                       in.spike=posterior.p < 0.1))
 #'
@@ -141,7 +145,7 @@ weightsofevidence <- function(posterior.p, prior.p) {
 #' @export
 Wdensities <- function(y, posterior.p, prior.p,
                        range.xseq=c(-25, 25), x.stepsize=0.01,
-                       adjust.bw=1, in.spike=NULL) {
+                       adjust.bw=1, in.spike=NULL, recalibrate=TRUE, debug=FALSE) {
     n.ctrls <- sum(y == 0)
     n.cases <- sum(y == 1)
     if (n.ctrls + n.cases != length(y))
@@ -151,7 +155,14 @@ Wdensities <- function(y, posterior.p, prior.p,
     if (x.stepsize < 0)
         stop("x.stepsize must be positive.")
 
-    W <- weightsofevidence(posterior.p, prior.p)
+    posterior.p.recalib <- recalibrate.p(y, posterior.p)
+    if(recalibrate) {# default is to use the recalibrated posterior
+        posterior.p.used <- posterior.p.recalib
+    } else {
+        posterior.p.used <- posterior.p
+    }
+
+    W <- weightsofevidence(posterior.p.used, prior.p)
     xseq <- seq(range.xseq[1], range.xseq[2], by=x.stepsize)
     if (is.null(in.spike)) {
         crude <- Wdensities.crude(y, W, xseq, adjust.bw)
@@ -170,8 +181,6 @@ Wdensities <- function(y, posterior.p, prior.p,
                           densities=crude, wts=wts,
                           lower=-0.5, upper=0.5)
     theta <- optim.result$par
-    cat("Optimal value of reweighting parameter theta:", theta, "\n")
-
     wdens <- reweight.densities(theta, crude$f.ctrls, crude$f.cases,
                                 n.ctrls, n.cases,
                                 xseq, wts)
@@ -180,14 +189,18 @@ Wdensities <- function(y, posterior.p, prior.p,
     z <- 0.5 * (sum(wdens$f.ctrls) + sum(wdens$f.cases)) * x.stepsize
     f.cases <- wdens$f.cases / z
     f.ctrls <- wdens$f.ctrls / z
-    cat("f.cases normalizes to", sum(f.cases * x.stepsize), "\n")
-    cat("f.ctrls normalizes to", sum(f.ctrls * x.stepsize), "\n")
+    if (debug) {
+        cat("Optimal value of reweighting parameter theta:", theta, "\n")
+        cat("f.cases normalizes to", sum(f.cases * x.stepsize), "\n")
+        cat("f.ctrls normalizes to", sum(f.ctrls * x.stepsize), "\n")
+    }
 
     ## cumulative frequencies for the adjusted distributions
     cumfreq.ctrls <- cumfreqs(f.ctrls, x.stepsize)
     cumfreq.cases <- cumfreqs(f.cases, x.stepsize)
 
-    obj <- list(y=y, posterior.p=posterior.p, prior.p=prior.p,
+    obj <- list(y=y, posterior.p=posterior.p, posterior.p.recalib=posterior.p.recalib,
+                prior.p=prior.p,
                 W=W, x=xseq, f.ctrls=f.ctrls, f.cases=f.cases,
                 f.ctrls.crude=crude$f.ctrls, f.cases.crude=crude$f.cases,
                 cumfreq.ctrls=cumfreq.ctrls, cumfreq.cases=cumfreq.cases,
@@ -260,16 +273,16 @@ density.spike.slab <- function(W, in.spike, xseq) {
 #'
 #' @param object,x,densities Densities object produced by
 #'        \code{\link{Wdensities}}.
-#' @param ... Further arguments passed to or from other methods. These are
+#' @param \dots Further arguments passed to or from other methods. These are
 #'        currently ignored.
 #'
 #' @return
 #' \code{summary} returns a data frame that reports the number of cases and
 #' controls, the test log-likelihood, the crude and model-based C-statistic
-#' and expected weight of evidence.
+#' and expected weight of evidence Lambda.
 #'
 #' @examples
-#' data("cleveland")
+#' data(cleveland)
 #' densities <- with(cleveland, Wdensities(y, posterior.p, prior.p))
 #'
 #' summary(densities)
@@ -278,49 +291,45 @@ density.spike.slab <- function(W, in.spike, xseq) {
 #' lambda.model(densities)
 #'
 #' @name summary-densities
-#' @importFrom pROC auc
 #' @export
 summary.Wdensities <- function(object, ...) {
     validate.densities(object)
     y <- object$y
     posterior.p <- object$posterior.p
-    prior.p <- object$prior.p
-
-    ## force direction of computation of the C-statistic so that predicted
-    ## values for controls are lower or equal than values for cases
-    auroc <- auc(y, posterior.p, direction="<")
-
-    ## weight of evidence in favour of true status
-    W <- weightsofevidence(posterior.p, prior.p)
-    W.case <- W[y == 1]
-    W.ctrl <- W[y == 0]
-    mean.W <- mean(c(mean(W.case), -mean(W.ctrl)))
 
     ## test log-likelihood
     loglik <- y * log(posterior.p) + (1 - y) * log(1 - posterior.p)
+
+    posterior.p.recalib <- object$posterior.p.recalib
+    loglik.recalib <-
+            y * log(posterior.p.recalib) + (1 - y) * log(1 - posterior.p.recalib)
+
     results <- data.frame(casectrl=paste(object$n.cases, "/", object$n.ctrls),
-                          auroc=round(auroc, 3),
+                          auroc=round(auroc.crude(object), 3),
                           auroc.adj=round(auroc.model(object), 3),
-                          W.all=round(tobits(mean.W), 2),
+                          lambda=round(lambda.crude(object), 2),
                           lambda.adj=round(lambda.model(object), 2),
-                          test.loglik=round(sum(loglik), 2)
+                          test.loglik=round(sum(loglik), 2),
+                          test.loglik.recalib=round(sum(loglik.recalib), 2)
                           )
+    Lambda.char <- intToUtf8(923)
     names(results) <-
         c("Cases / controls",
           "Crude C-statistic",
           "Model-based C-statistic",
-          "Crude Lambda (bits)",
-          "Model-based Lambda (bits)",
-          "Test log-likelihood (natural log units)"
+          paste("Crude", Lambda.char, "(bits)"),
+          paste("Model-based", Lambda.char, "(bits)"),
+          "Test log-likelihood (nats)",
+          "log-likelihood after recalibration (nats)"
           )
     return(results)
 }
 
+#' @rdname summary-densities
 #' @return
 #' \code{mean} returns a numeric vector listing the mean densities of the weight
 #' of evidence in controls and in cases.
 #'
-#' @rdname summary-densities
 #' @export
 mean.Wdensities <- function(x, ...) {
     validate.densities((densities <- x))
@@ -329,11 +338,23 @@ mean.Wdensities <- function(x, ...) {
     return(c(ctrls=-means.ctrls, cases=means.cases))
 }
 
-#' @return
-#' \code{auroc.model} returns the area under the ROC curve according to the
-#' model-based densities of weight of evidence.
-#'
 #' @rdname summary-densities
+#' @importFrom pROC auc
+#' @export
+auroc.crude <- function(densities) {
+
+    ## force direction of computation of the C-statistic so that predicted
+    ## values for controls are lower or equal than values for cases
+    auroc <- as.numeric(with(densities, auc(y, posterior.p, direction="<")))
+    return(auroc)
+}
+
+#' @rdname summary-densities
+#' @return
+#' \code{auroc.crude} and \code{auroc.model} return the area under the ROC curve
+#' according to the crude and the model-based densities of weight of evidence,
+#' respectively.
+#'
 #' @importFrom zoo rollmean
 #' @export
 auroc.model <- function(densities) {
@@ -343,11 +364,22 @@ auroc.model <- function(densities) {
     return(auroc.model)
 }
 
-#' @return
-#' \code{lambda.model} returns the expected weight of evidence (expected
-#' information for discrimination) in bits from the model-based densities.
-#'
 #' @rdname summary-densities
+#' @export
+lambda.crude <- function(densities) {
+    W <- with(densities, weightsofevidence(posterior.p, prior.p))
+    W.case <- W[densities$y == 1]
+    W.ctrl <- W[densities$y == 0]
+    lambda <- tobits(mean(c(mean(W.case), -mean(W.ctrl))))
+    return(lambda)
+}
+
+#' @rdname summary-densities
+#' @return
+#' \code{lambda.crude} and \code{lambda.model} return the expected weight of
+#' evidence (expected information for discrimination) in bits from the crude
+#' and the model-based densities, respectively.
+#'
 #' @export
 lambda.model <- function(densities) {
     wts.ctrlscases <- with(densities, c(n.ctrls, n.cases) / (n.ctrls + n.cases))
@@ -365,7 +397,7 @@ lambda.model <- function(densities) {
 #' cases with weight of evidence below the given threshold.
 #'
 #' @examples
-#' data("cleveland")
+#' data(cleveland)
 #' densities <- with(cleveland, Wdensities(y, posterior.p, prior.p))
 #' w.threshold <- log(4) # threshold Bayes factor of 4
 #' prop.belowthreshold(densities, w.threshold)
@@ -423,4 +455,22 @@ validate.probabilities <- function(posterior, prior) {
         stop("NAs not allowed in the vectors of probabilities.")
     if (any(posterior < 0 | posterior > 1 | prior < 0 | prior > 1))
         stop("Vector does not contain probabilities.")
+}
+
+#' Recalibrate posterior probabilities
+#'
+#' Transforms posterior probabilities to logits, fits a logistic regression model
+#' and returns the predictive probabilities from this model.
+#'
+#' @param y Binary outcome label (0 for controls, 1 for cases).
+#' @param posterior.p Vector of posterior probabilities.
+#' 
+#' @return
+#' Recalibrated posterior probabilities.
+#' @importFrom stats glm predict
+recalibrate.p <- function(y, posterior.p) {
+    x <- log(posterior.p / (1 - posterior.p))
+    glm.model <- glm(y ~ x, family="binomial")
+    newp <- predict(object=glm.model, type="response")
+    return(newp)
 }

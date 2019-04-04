@@ -74,5 +74,5 @@
 #' https://doi.org/10.1177/0962280218776989.
 #' 
 #' @docType package
-#' @import ggplot2
+#' @import ggplot2 
 "_PACKAGE"

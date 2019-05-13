@@ -1,8 +1,8 @@
-363391d966cca9d2a9e45a168d8fe980 *DESCRIPTION
+a7cf48e9e3a183b035778712e8f551ee *DESCRIPTION
 5a6af5af7f8b9918d5728dc41a127d6f *NAMESPACE
 675e38b902a7c5ea453ed39e92973cb6 *R/data.R
-ffdb8a972030bc9e62144a769ffa312e *R/plots.R
-2a98b01d7ccc633cca682f6e87d636ed *R/wdists.R
+3c589f6a7910e42940a0b5b4f3e4005e *R/plots.R
+5e0f817043cdeff9367871d3989d9963 *R/wdists.R
 befd0080f71e435bfb2abad1a1b420ca *R/wevid.R
 498f49d879bf22ce5410c472cda81473 *data/cleveland.rda
 b0e3dfdf5e460c0c45b3c270c44ad94e *data/fitonly.rda

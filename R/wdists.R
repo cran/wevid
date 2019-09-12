@@ -166,13 +166,19 @@ Wdensities <- function(y, posterior.p, prior.p,
     BIC.matrix.cases <- mclustBIC(data.frame(W[y==1]), G=1:2, verbose=FALSE)
     BIC.vector <- (BIC.matrix.ctrls + BIC.matrix.cases)[, 1]
     BIC.vector <- (BIC.vector - min(BIC.vector))
-    if (debug)
-      print(round(BIC.vector, 2))
+    if (debug) {
+        cat("Controls:\n")
+        print(BIC.matrix.ctrls)
+        cat("\nCases:\n")
+        print(BIC.matrix.cases)
+        cat("\nBIC vector for controls + cases:\n")
+        print(round(BIC.vector, 2))
+    }
     num.components <- as.integer(which.max(BIC.vector))
-    message(sprintf("Density with %d mixture component%s chosen by BIC",
-                    num.components, ifelse(num.components == 1, "", "s")))
 
     if (num.components > 1) {
+        message("Density with ", num.components, " mixture components ",
+                "chosen by BIC")
         mixmodel <- Mclust(W, G=num.components, verbose=FALSE)
         mixcomponent <- as.integer(mixmodel$classification)
         crude <- Wdensities.mix(y, W, xseq, mixcomponent)
@@ -266,18 +272,28 @@ Wdensities.mix <- function(y, W, xseq, mixcomponent) {
     return(list(f.ctrls=Wdensity.mix.ctrls, f.cases=Wdensity.mix.cases))
 }
 
-# fits a 2-component mixture density over range of xseq
+#' Fit a 2-component mixture density over range of xseq
 #' @importFrom stats density
 #' @noRd
 density.mixture <- function(W, mixcomponent, xseq) {
+    num.xseq <- length(xseq)
+    min.xseq <- min(xseq)
+    max.xseq <- max(xseq)
+
+    ## special case in which there is only one component in this subset or
+    ## the number of observations for a component is not enough to compute
+    ## the bandwidth of the kernel density estimate
+    if (length(unique(mixcomponent)) == 1 || any(table(mixcomponent) < 2))
+        return(density(W, bw="SJ", n=num.xseq, from=min.xseq, to=max.xseq)$y)
+
     ## fit a density for each mixture component
-    density.1 <- density(W[mixcomponent==1], bw="SJ", n=length(xseq),
-                             from=min(xseq), to=max(xseq))
-    density.2 <- density(W[mixcomponent==2], bw="SJ", n=length(xseq),
-                            from=min(xseq), to=max(xseq))
-    wts.mix <- as.integer(table(mixcomponent))
-    wts.mix <- wts.mix / sum(wts.mix)
+    density.1 <- density(W[mixcomponent == 1], bw="SJ",
+                         n=num.xseq, from=min.xseq, to=max.xseq)
+    density.2 <- density(W[mixcomponent == 2], bw="SJ",
+                         n=num.xseq, from=min.xseq, to=max.xseq)
+
     ## sum these densities weighted by the mixture proportions
+    wts.mix <- as.integer(table(mixcomponent)) / length(mixcomponent)
     density.mix <- wts.mix[1] * density.1$y + wts.mix[2] * density.2$y
     return(density.mix)
 }
@@ -358,8 +374,8 @@ auroc.crude <- function(densities) {
 
     ## force direction of computation of the C-statistic so that predicted
     ## values for controls are lower or equal than values for cases
-    auroc <- as.numeric(with(densities,
-                             auc(y, posterior.p, direction="<", quiet=TRUE)))
+    auroc <- as.numeric(with(densities, auc(y, posterior.p, direction="<",
+                                            quiet=TRUE)))
     return(auroc)
 }
 

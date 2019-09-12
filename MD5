@@ -1,13 +1,13 @@
-a7cf48e9e3a183b035778712e8f551ee *DESCRIPTION
+d4d03c56129a44cee3205444d2221c3a *DESCRIPTION
 5a6af5af7f8b9918d5728dc41a127d6f *NAMESPACE
 675e38b902a7c5ea453ed39e92973cb6 *R/data.R
 3c589f6a7910e42940a0b5b4f3e4005e *R/plots.R
-5e0f817043cdeff9367871d3989d9963 *R/wdists.R
-befd0080f71e435bfb2abad1a1b420ca *R/wevid.R
+ebf484f8c4234a49cf492a02ae4909db *R/wdists.R
+bf1029f935bcaf5bfb18e3bee8436017 *R/wevid.R
 498f49d879bf22ce5410c472cda81473 *data/cleveland.rda
 b0e3dfdf5e460c0c45b3c270c44ad94e *data/fitonly.rda
 0aa4f6f7e52197d0b2e9e2061f32e41e *data/pima.rda
-7e268d80a3fef5c43bb8e871761c6561 *inst/CITATION
+58c7ba9a9ffe0ff9ff63913cae5e36d2 *inst/CITATION
 de7db163b7a86923f74f4ccd15065e29 *man/Wdensities.Rd
 ae256b9db533ca04f3eea9bb9cf9ca0f *man/Wdensities.crude.Rd
 0a9a9be398793c2a95df89fcfff8e975 *man/plotWdists.Rd
@@ -17,5 +17,5 @@ b7f74464625c2b72b47a256950c638f9 *man/plotcumfreqs.Rd
 cc08dd61fee87649dac283c7be0c2c78 *man/recalibrate.p.Rd
 963732dcd8a95d48d9db3a5af1e86208 *man/summary-densities.Rd
 fb06d63583e6ee8ebff594b676dd7f82 *man/weightsofevidence.Rd
-e1a0eeb86192599e3c7e6376df89c3f0 *man/wevid-package.Rd
+7f97c8b7849352ceb10d33fee82c0484 *man/wevid-package.Rd
 820c93e92dc93dc4fa42086d82b51e43 *man/wevid.datasets.Rd
